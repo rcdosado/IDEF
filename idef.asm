@@ -7,8 +7,6 @@
 	
 	INCLUDE useful.inc
 
-
-
         .data    
 
 
@@ -23,7 +21,8 @@ Start:
 	 callx	 GetCommandLineA
 	 mov	 esi,eax
 	 mov	 edi, offset params
-	 call	 get_params
+	 call	 get_params		;get first parameter
+	 call	 get_params		;get second parameter
 
 	 push	 eax
 	 callx	 ExitProcess

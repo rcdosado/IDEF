@@ -10,9 +10,7 @@ endm
 LF      equ     10
 CR      equ     13
 CRLF    equ     <13,10>
-LF      equ     10
-CR      equ     13
-CRLF    equ     <13,10>
+
 
 ofs equ offset
 dwo equ dword ptr
@@ -37,16 +35,6 @@ Pushad_struc            struc
 Pushad_struc            ends
 
 cPushad         equ     size Pushad_struc
-
-
-;-------------------------------------------------------
-
-
-
-
-
-
-
 
 
 ; 컴� Structured Exception Handling (SEH) related stuff 쳐컴컴컴컴컴컴컴컴컴�
@@ -159,4 +147,3 @@ EXCEPTION_DISPOSITION __cdecl _except_handler (
     struct _CONTEXT *ContextRecord,
     void * DispatcherContext
     );
-#
