@@ -94,6 +94,7 @@ Start:
 	 cmp     dword ptr [eax+14h], 0
 	 jz      epilogue
 
+
 	 ;to be continued...
 
 epilogue:
@@ -165,6 +166,75 @@ parse_ok:
 parse_invalid:                          
 	 pop     edi
 	 retn
+
+
+parse_exports   proc near              			 
+
+var_18          = dword ptr -18h
+arg_0           = dword ptr  4
+
+	 push    ecx
+	 push    edx
+	 push    ebp
+	 push    esi
+	 push    edi
+	 push    ebx
+	 mov     edx, ebx        ; edx points to mapped PE file
+	 mov     eax, [esp+1Ch]  ; eax points to export table RVA
+	 add     edx, [edx+3Ch]  ; edx points to PE signature for mapped file
+	 movzx   ecx, word ptr [edx+6] ; get how many sections this pe file has
+	 dec     ecx
+	 jl      short exit_export_parser
+	 lea     ebx, [edx+0F8h]
+	 imul    ecx, 28h
+	 sub     edi, edi
+
+loc_4012DE:                             
+	 mov     esi, [ecx+ebx+0Ch]
+	 cmp     esi, eax
+	 jbe     short loc_4012F6
+
+loc_4012E6:                            
+				 
+	 sub     ecx, 28h
+	 jge     short loc_4012DE
+	 test    edi, edi
+	 jnz     short loc_401302
+	 cmp     [edx+54h], eax
+	 jbe     short exit_export_parser
+	 jmp     short loc_401306
+; -------------------------------------------
+
+loc_4012F6:                            
+	 cmp     edi, esi
+	 ja      short loc_4012E6
+	 mov     edi, esi
+	 mov     ebp, [ecx+ebx+14h]
+	 jmp     short loc_4012E6
+; -------------------------------------------
+
+loc_401302:                            
+	 sub     eax, edi
+	 add     eax, ebp
+
+loc_401306:                            
+	 add     eax, [esp+18h+var_18]
+
+loc_401309:                            
+	 pop     ebx
+	 pop     edi
+	 pop     esi
+	 pop     ebp
+	 pop     edx
+	 pop     ecx
+	 retn    4
+; -------------------------------------------
+
+exit_export_parser:                    
+				 ; parser
+	 sub     eax, eax
+	 jmp     short loc_401309
+parse_exports   endp
 
 
 
