@@ -85,20 +85,168 @@ Start:
 	 jnz     epilogue
 
 
-	 mov     edx, [ebx+esi+78h]	; points to export section,DLLS have non zero value here
-	 test    edx, edx
+	 mov     edx, [ebx+esi+78h]	; points to export section RVA,it'll jump if pefile has no
+	 test    edx, edx		; exports whatsoever
 	 jz      epilogue
 
 	 push    edx
-	 call    parse_exports
+	 call    resolveRVAddress
 	 cmp     dword ptr [eax+14h], 0
 	 jz      epilogue
 
 
-	 ;to be continued...
+         push    eax
+	 push    50000h			; uBytes
+	 push    40h			; uFlags
+	 callx   LocalAlloc
+	 test    eax, eax
+	 pop     ecx
+	 jz      epilogue
+
+	 mov     edi, eax
+	 mov     dword ptr ds:banner+4, eax
+	 mov     ebp, ecx
+	 mov     eax, 'EMAN'
+	 stosd
+	 mov     al, 20h
+	 stosb
+
+	 push    dword ptr [ebp+0Ch]
+	 call    resolveRVAddress
+
+	 xchg    eax, ecx
+	 sub     edx, edx
+	 mov     esi, offset buffer1
+
+copy_pe_name:                          
+				 
+	 mov     al, [ecx]
+	 test    al, al
+	 jz      short create_heading
+	 inc     ecx
+	 stosb
+	 test    edx, edx
+	 jnz     short copy_pe_name
+	 cmp     al, '.'
+	 jz      short @@period
+	 cmp     al, 'a'
+	 jb      short @@jmp
+	 cmp     al, 'z'
+	 ja      short @@jmp
+	 and     al, '¯'
+
+@@jmp:                            				 
+	 mov     [esi], al
+	 inc     esi
+	 jmp     short copy_pe_name
+; ---------------------------------------------------------------------------
+
+@@period:                             
+	 mov     byte ptr [esi], 0
+	 inc     edx
+	 jmp     short copy_pe_name
+; ---------------------------------------------------------------------------
+
+create_heading:                         
+	 mov     eax, 58450A0Dh		;0a,0d,'EX'
+	 mov     esi, [ebp+10h]
+	 stosd
+	 mov     eax, 'TROP'
+	 dec     esi
+	 stosd
+	 mov     al, 'S'
+	 stosb
+
+pex_exports_loop:                
+				 
+	 inc     esi
+	 mov     ecx, esi
+	 sub     eax, eax
+	 sub     ecx, [ebp+16]
+	 jl      short loc_401483
+	 cmp     ecx, [ebp+20]
+	 jnb     short loc_4014DB
+	 push    dword ptr [ebp+28]
+	 call    resolveRVAddress
+	 mov     eax, [eax+ecx*4]
+
+loc_401483:                            
+	 test    eax, eax
+	 jz      short pex_exports_loop
+	 mov     ax, 0A0Dh
+	 stosw
+	 push    dword ptr [ebp+24h]
+	 call    resolveRVAddress
+	 sub     edx, edx
+
+loc_401497:                             
+	 cmp     edx, [ebp+18h]		; checking if export has ordinals
+	 jnb     short ordinals_true
+	 cmp     cx, [eax]
+	 jz      short loc_4014A6
+	 inc     edx
+	 inc     eax
+	 inc     eax
+	 jmp     short loc_401497	; checking if export has ordinals
+; ---------------------------------------------------------------------------
+
+loc_4014A6:                             
+	 push    dword ptr [ebp+20h]
+	 call    resolveRVAddress
+	 push    dword ptr [eax+edx*4]
+	 call    resolveRVAddress
+	 xchg    eax, ecx
+
+pex_copyUntilz:                         
+	 mov     al, [ecx]
+	 test    al, al
+	 jz      short pex_exports_loop
+	 inc     ecx
+	 stosb
+	 jmp     short pex_copyUntilz
+; ---------------------------------------------------------------------------
+
+ordinals_true:                         
+	 push    esi
+	 push    esi
+	 push    offset buffer1
+	 push    offset tmpl8		; "%s_ORD_%.4X @%d NONAME"
+	 push    edi			; LPSTR
+	 call    ds:wsprintfA
+	 add     esp, 14h
+	 add     edi, eax
+	 jmp     short pex_exports_loop
+; ---------------------------------------------------------------------------
+
+loc_4014DB:                            
+	 mov     esi, offset dmpname
+	 cmp     byte ptr [esi], 0
+	 jnz     short createOutputFile
+	 mov     esi, offset buffer1
+	 push    esi			; lpString
+	 call    ds:lstrlenA
+	 mov     dword ptr [eax+esi], 'FED.'
+	 mov     byte ptr [eax+esi+4], 0
+
+createOutputFile:                     
+	 push    0			; iAttribute
+	 push    esi			; lpPathName
+	 call    ds:_lcreat
+	 mov     esi, eax
+	 sub     edi, dword ptr ds:banner+4
+	 push    edi			; uBytes
+	 push    dword ptr ds:banner+4	; lpBuffer
+	 push    esi			; hFile
+	 call    ds:_lwrite
+	 push    esi			; hObject
+	 call    ds:CloseHandle
+	 push    dword ptr ds:banner+4	; hMem
+	 call    ds:LocalFree
+	 mov     ebp, 40128Dh
+
 
 epilogue:
-	 pop	 dwo fs:0
+	 pop	 dwo fs:0		;restore old exception handler
 	 pop	 ecx
 	 push	 ebx
 	 callx	 UnmapViewOfFile
@@ -113,8 +261,9 @@ __epilogue:
 	 push	 ebp
 	 callx	 lstrlenA
 	 push	 eax
-
-
+	 push    ebp
+	 push    0FFFFFFF5h      ; hFile
+	 callx   _lwrite	 
 	 push	 eax
 	 callx	 ExitProcess
 
@@ -168,73 +317,76 @@ parse_invalid:
 	 retn
 
 
-parse_exports   proc near              			 
+resolveRVAddress proc near     
+				
 
-var_18          = dword ptr -18h
+
 arg_0           = dword ptr  4
 
-	 push    ecx
-	 push    edx
-	 push    ebp
-	 push    esi
-	 push    edi
-	 push    ebx
-	 mov     edx, ebx        ; edx points to mapped PE file
-	 mov     eax, [esp+1Ch]  ; eax points to export table RVA
-	 add     edx, [edx+3Ch]  ; edx points to PE signature for mapped file
-	 movzx   ecx, word ptr [edx+6] ; get how many sections this pe file has
-	 dec     ecx
-	 jl      short exit_export_parser
-	 lea     ebx, [edx+0F8h]
-	 imul    ecx, 28h
-	 sub     edi, edi
+	push    ecx
+	push    edx
+	push    ebp
+	push    esi
+	push    edi
+	push    ebx
+	mov     edx, ebx		; edx points to mapped PE file
+	mov     eax, [esp+1Ch]		; eax points to export table RVA,from arg0
+	add     edx, [edx+3Ch]		; edx points to PE signature for mapped file
+	movzx   ecx, word ptr [edx+6]	; get how many sections this pe file has
+	dec     ecx			; decrement
+	jl      short pex_exit0
+	lea     ebx, [edx+248]		; goes to the first section name
+	imul    ecx, 28h		; multiplies decremented section # with 0x28
+	sub     edi, edi
 
-loc_4012DE:                             
-	 mov     esi, [ecx+ebx+0Ch]
-	 cmp     esi, eax
-	 jbe     short loc_4012F6
+getSectionRVA:                         
+	mov     esi, [ecx+ebx+0Ch]	; gets the section's RVA starting from last?
+	cmp     esi, eax		; test if its below or equal to arg0
+	jbe     short pex_getsection
 
-loc_4012E6:                            
-				 
-	 sub     ecx, 28h
-	 jge     short loc_4012DE
-	 test    edi, edi
-	 jnz     short loc_401302
-	 cmp     [edx+54h], eax
-	 jbe     short exit_export_parser
-	 jmp     short loc_401306
-; -------------------------------------------
+pex_checksection:                       
+					
+	sub     ecx, 28h
+	jge     short getSectionRVA	; gets the section's RVA starting from last?
+	test    edi, edi
+	jnz     short pex_exit1
+	cmp     [edx+54h], eax
+	jbe     short pex_exit0
+	jmp     short pex_exit2
+; ---------------------------------------------------------------------------
 
-loc_4012F6:                            
-	 cmp     edi, esi
-	 ja      short loc_4012E6
-	 mov     edi, esi
-	 mov     ebp, [ecx+ebx+14h]
-	 jmp     short loc_4012E6
-; -------------------------------------------
+pex_getsection:                        
+	cmp     edi, esi
+	ja      short pex_checksection
+	mov     edi, esi
+	mov     ebp, [ecx+ebx+14h]	; gets the sections pointer to raw data
+	jmp     short pex_checksection
+; ---------------------------------------------------------------------------
 
-loc_401302:                            
-	 sub     eax, edi
-	 add     eax, ebp
+pex_exit1:                              
+	sub     eax, edi
+	add     eax, ebp
 
-loc_401306:                            
-	 add     eax, [esp+18h+var_18]
+pex_exit2:                              
+	add     eax, [esp]		;access the last data pushed in the stack w/c is ebx
 
-loc_401309:                            
-	 pop     ebx
-	 pop     edi
-	 pop     esi
-	 pop     ebp
-	 pop     edx
-	 pop     ecx
-	 retn    4
-; -------------------------------------------
+pex_exit3:                              
+	pop     ebx
+	pop     edi
+	pop     esi
+	pop     ebp
+	pop     edx
+	pop     ecx
+	retn    4
+; ---------------------------------------------------------------------------
 
-exit_export_parser:                    
-				 ; parser
-	 sub     eax, eax
-	 jmp     short loc_401309
-parse_exports   endp
+pex_exit0:                      
+				
+	sub     eax, eax
+	jmp     short pex_exit3
+
+resolveRVAddress endp
+
 
 
 
