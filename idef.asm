@@ -30,6 +30,7 @@ Start:
 	 mov	 edi, offset params
 	 call	 get_params		; get first parameter
 	 call	 get_params		; get second parameter
+	 jz	 __epilogue
 
 	 mov     ebp, offset error_string1 
 	 push    0			; iReadWrite
@@ -163,36 +164,42 @@ pex_exports_loop:
 				 
 	 inc     esi
 	 mov     ecx, esi
+
 	 sub     eax, eax
 	 sub     ecx, [ebp+16]
-	 jl      short loc_401483
+	 jl      short cont2
+
 	 cmp     ecx, [ebp+20]
-	 jnb     short loc_4014DB
+	 jnb     short cont3
+
 	 push    dword ptr [ebp+28]
 	 call    resolveRVAddress
+
 	 mov     eax, [eax+ecx*4]
 
-loc_401483:                            
+cont2:                            
 	 test    eax, eax
 	 jz      short pex_exports_loop
+
 	 mov     ax, 0A0Dh
 	 stosw
+
 	 push    dword ptr [ebp+24h]
 	 call    resolveRVAddress
 	 sub     edx, edx
 
-loc_401497:                             
+while_cx_nz:                             
 	 cmp     edx, [ebp+18h]		; checking if export has ordinals
 	 jnb     short ordinals_true
 	 cmp     cx, [eax]
-	 jz      short loc_4014A6
+	 jz      short cx_zero
 	 inc     edx
 	 inc     eax
 	 inc     eax
-	 jmp     short loc_401497	; checking if export has ordinals
+	 jmp     short while_cx_nz	; checking if export has ordinals
 ; ---------------------------------------------------------------------------
 
-loc_4014A6:                             
+cx_zero:                             
 	 push    dword ptr [ebp+20h]
 	 call    resolveRVAddress
 
@@ -204,6 +211,7 @@ pex_copyUntilz:
 	 mov     al, [ecx]
 	 test    al, al
 	 jz      short pex_exports_loop
+
 	 inc     ecx
 	 stosb
 	 jmp     short pex_copyUntilz
@@ -222,7 +230,7 @@ ordinals_true:
 	 jmp     short pex_exports_loop
 ; ---------------------------------------------------------------------------
 
-loc_4014DB:                            
+cont3:                            
 	 mov     esi, offset dmpname
 	 cmp     byte ptr [esi], 0
 	 jnz     short createOutputFile
@@ -252,7 +260,7 @@ createOutputFile:
 	 push    dword ptr [banner+4]	; hMem
 	 callx   LocalFree
 
-	 mov     ebp, 40128Dh
+	 mov     ebp, offset get_params ;mystery?!
 
 
 epilogue:
@@ -274,7 +282,10 @@ __epilogue:
 	 push	 eax
 	 push    ebp
 	 push    0FFFFFFF5h      ; hFile
-	 callx   _lwrite	 
+	 callx   _lwrite
+	 
+	 callx	 GetLastError
+	 
 	 push	 eax
 	 callx	 ExitProcess
 
@@ -286,7 +297,7 @@ __exception_handler:
 	 mov     dword ptr [ecx+0B8h], offset epilogue
 	 mov     [ecx+0C4h], edx
 	 retn
-
+;-----------------------------------------------------------
 get_params:                   
 				      
 	 push    edi
@@ -327,7 +338,7 @@ parse_invalid:
 	 pop     edi
 	 retn
 
-
+;-----------------------------------------------------------
 resolveRVAddress:   	
 
 	push    ecx
