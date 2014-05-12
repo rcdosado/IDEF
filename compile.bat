@@ -6,4 +6,3 @@ set INP=idef
 %BIN%\tasm32.exe -ml -t -q -m5 -q %INP%.asm
 %BIN%\tlink32.exe -Tpe -aa -x -c  %INP%,,,%BIN%\import32,,
 del *.obj
-pause

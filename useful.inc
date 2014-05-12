@@ -37,6 +37,110 @@ Pushad_struc            ends
 cPushad         equ     size Pushad_struc
 
 
+; ÄÄ´ Context related stuff (i386, i486) ÃÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ
+
+; The following flagz control the contentz of the CONTEXT structure:
+
+CONTEXT_i386    EQU     00010000h       ; This assumes that i386 and i486
+CONTEXT_i486    EQU     00010000h       ;   have identical context recordz.
+
+CONTEXT_CONTROL         EQU (CONTEXT_i386 OR 01h) ; SS:SP, CS:IP, FLAGS, BP.
+CONTEXT_INTEGER         EQU (CONTEXT_i386 OR 02h) ; AX, BX, CX, DX, SI, DI.
+CONTEXT_SEGMENTS        EQU (CONTEXT_i386 OR 04h) ; DS, ES, FS, GS.
+CONTEXT_FLOATING_POINT  EQU (CONTEXT_i386 OR 08h) ; 387 state
+CONTEXT_DEBUG_REGISTERS EQU (CONTEXT_i386 OR 10h) ; DB 0-3,6,7
+
+CONTEXT_FULL            EQU (CONTEXT_CONTROL OR CONTEXT_INTEGER OR \
+                             CONTEXT_SEGMENTS)
+
+; Size of the 80387 save area, which is in the context frame:
+
+SIZE_OF_80387_REGISTERS         EQU     80
+
+FLOATING_SAVE_AREA              STRUC
+        ControlWord             DD      ?
+        StatusWord              DD      ?
+        TagWord                 DD      ?
+        ErrorOffset             DD      ?
+        ErrorSelector           DD      ?
+        DataOffset              DD      ?
+        DataSelector            DD      ?
+        RegisterArea            DB      SIZE_OF_80387_REGISTERS DUP (?)
+        Cr0NpxState             DD      ?
+FLOATING_SAVE_AREA              ENDS
+
+
+
+CONTEXT                         STRUC
+
+; The flags valuez - within the ContextFlags field - control the
+; contentz of the CONTEXT structure.
+;
+; If the context record is used as an input parameter, then
+; for each portion of the context record controlled by a flag
+; whose value is set, it is asumed that that portion of the
+; context record contains valid context. If the context record
+; is being used to modify a threadz context, then only that
+; portion of the threadz context will be modified.
+;
+; If the context record is used as an IN OUT parameter to capture
+; the context of a thread, then only those portionz of the thread's
+; context corresponding to set flags will be returned.
+;
+; The context record is never used as an OUT only parameter.
+
+        CONTEXT_ContextFlags    DD      ?
+
+; This section is specified/returned if CONTEXT_DEBUG_REGISTERS is
+; set in ContextFlags. Note that CONTEXT_DEBUG_REGISTERS is NOT
+; included in CONTEXT_FULL:
+
+        CONTEXT_Dr0             DD      ?
+        CONTEXT_Dr1             DD      ?
+        CONTEXT_Dr2             DD      ?
+        CONTEXT_Dr3             DD      ?
+        CONTEXT_Dr6             DD      ?
+        CONTEXT_Dr7             DD      ?
+
+; This section is specified/returned if the
+; ContextFlags word contains the flag CONTEXT_FLOATING_POINT:
+
+        CONTEXT_FloatSave       FLOATING_SAVE_AREA      ?
+
+; This section is specified/returned if the
+; ContextFlags word contains the flag CONTEXT_SEGMENTS:
+
+        CONTEXT_SegGs           DD      ?
+        CONTEXT_SegFs           DD      ?
+        CONTEXT_SegEs           DD      ?
+        CONTEXT_SegDs           DD      ?
+
+; This section is specified/returned if the
+; ContextFlags word contains the flag CONTEXT_INTEGER:
+
+        CONTEXT_Edi             DD      ?
+        CONTEXT_Esi             DD      ?
+        CONTEXT_Ebx             DD      ?
+        CONTEXT_Edx             DD      ?
+        CONTEXT_Ecx             DD      ?
+        CONTEXT_Eax             DD      ?
+
+; This section is specified/returned if the
+; ContextFlags word contains the flag CONTEXT_CONTROL:
+
+        CONTEXT_Ebp             DD      ?
+        CONTEXT_Eip             DD      ?
+        CONTEXT_SegCs           DD      ?       ; MUST BE SANITIZED
+        CONTEXT_EFlags          DD      ?       ; MUST BE SANITIZED
+        CONTEXT_Esp             DD      ?
+        CONTEXT_SegSs           DD      ?
+
+CONTEXT                         ENDS
+
+
+
+
+
 ; ÄÄ´ Structured Exception Handling (SEH) related stuff ÃÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄÄ
 
 ; This structure is the one pointed to by FS:[0]:
@@ -147,3 +251,4 @@ EXCEPTION_DISPOSITION __cdecl _except_handler (
     struct _CONTEXT *ContextRecord,
     void * DispatcherContext
     );
+#

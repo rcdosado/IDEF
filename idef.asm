@@ -14,11 +14,13 @@ banner	db	'iDEF creates DEF file for given PE file with exports.',CRLF
 	db	'Usage: iDEF <PEfile.ext> [OutputFile]',CRLF
 	db	'If no OutputFile is given PEfile.DEF is created.',0
 
-error_string1	db 'Can't find/open/map module!',CRLF,0
+error_string1	db 'Cannot find/open/map module!',CRLF,0
 error_string2   db 'Module is not 32bit or exports nothing!',CRLF,0
+tmpl8           db '%s_ORD_%.4X @%d NONAME',0
 
+buffer1:
 params  db	104h dup(0)
-
+dmpname db	0EFCh dup(0)
         .code
 Start:
 	 mov	 ebp,offset banner
@@ -128,20 +130,20 @@ copy_pe_name:
 	 test    edx, edx
 	 jnz     short copy_pe_name
 	 cmp     al, '.'
-	 jz      short @@period
+	 jz      short period
 	 cmp     al, 'a'
-	 jb      short @@jmp
+	 jb      short jmps
 	 cmp     al, 'z'
-	 ja      short @@jmp
+	 ja      short jmps
 	 and     al, '¯'
 
-@@jmp:                            				 
+jmps:                            				 
 	 mov     [esi], al
 	 inc     esi
 	 jmp     short copy_pe_name
 ; ---------------------------------------------------------------------------
 
-@@period:                             
+period:                             
 	 mov     byte ptr [esi], 0
 	 inc     edx
 	 jmp     short copy_pe_name
@@ -193,6 +195,7 @@ loc_401497:
 loc_4014A6:                             
 	 push    dword ptr [ebp+20h]
 	 call    resolveRVAddress
+
 	 push    dword ptr [eax+edx*4]
 	 call    resolveRVAddress
 	 xchg    eax, ecx
@@ -212,7 +215,8 @@ ordinals_true:
 	 push    offset buffer1
 	 push    offset tmpl8		; "%s_ORD_%.4X @%d NONAME"
 	 push    edi			; LPSTR
-	 call    ds:wsprintfA
+	 callx   _wsprintfA
+
 	 add     esp, 14h
 	 add     edi, eax
 	 jmp     short pex_exports_loop
@@ -222,26 +226,32 @@ loc_4014DB:
 	 mov     esi, offset dmpname
 	 cmp     byte ptr [esi], 0
 	 jnz     short createOutputFile
+
 	 mov     esi, offset buffer1
 	 push    esi			; lpString
-	 call    ds:lstrlenA
+	 callx   lstrlenA
+
 	 mov     dword ptr [eax+esi], 'FED.'
 	 mov     byte ptr [eax+esi+4], 0
 
 createOutputFile:                     
 	 push    0			; iAttribute
 	 push    esi			; lpPathName
-	 call    ds:_lcreat
+	 callx   _lcreat
+
 	 mov     esi, eax
 	 sub     edi, dword ptr ds:banner+4
 	 push    edi			; uBytes
-	 push    dword ptr ds:banner+4	; lpBuffer
+	 push    dword ptr [banner+4]	; lpBuffer
 	 push    esi			; hFile
-	 call    ds:_lwrite
+	 callx   _lwrite
+
 	 push    esi			; hObject
-	 call    ds:CloseHandle
-	 push    dword ptr ds:banner+4	; hMem
-	 call    ds:LocalFree
+	 callx   CloseHandle
+
+	 push    dword ptr [banner+4]	; hMem
+	 callx   LocalFree
+
 	 mov     ebp, 40128Dh
 
 
@@ -260,6 +270,7 @@ __epilogue:
 
 	 push	 ebp
 	 callx	 lstrlenA
+
 	 push	 eax
 	 push    ebp
 	 push    0FFFFFFF5h      ; hFile
@@ -317,11 +328,7 @@ parse_invalid:
 	 retn
 
 
-resolveRVAddress proc near     
-				
-
-
-arg_0           = dword ptr  4
+resolveRVAddress:   	
 
 	push    ecx
 	push    edx
@@ -348,16 +355,20 @@ pex_checksection:
 					
 	sub     ecx, 28h
 	jge     short getSectionRVA	; gets the section's RVA starting from last?
+
 	test    edi, edi
 	jnz     short pex_exit1
+
 	cmp     [edx+54h], eax
 	jbe     short pex_exit0
+
 	jmp     short pex_exit2
 ; ---------------------------------------------------------------------------
 
 pex_getsection:                        
 	cmp     edi, esi
 	ja      short pex_checksection
+
 	mov     edi, esi
 	mov     ebp, [ecx+ebx+14h]	; gets the sections pointer to raw data
 	jmp     short pex_checksection
@@ -384,8 +395,6 @@ pex_exit0:
 				
 	sub     eax, eax
 	jmp     short pex_exit3
-
-resolveRVAddress endp
 
 
 
