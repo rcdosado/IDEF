@@ -11,7 +11,7 @@ Requirements
  - tlink32.exe turbo linker32 bits
  - import32 (included in the repo)
 
-Running
+Compilation
 -------
  Simply modify the batch file included to point to the location of the requirements, the 3 files must have the same directory
  then execute compile.bat
@@ -29,3 +29,38 @@ Running
 
  ```
 
+Sample Outputs
+-------
+
+>idef c:\windows\system32\user32.dll
+```
+	NAME USER32.dll
+	EXPORTS
+	USER32_ORD_05DC @1500 NONAME
+	USER32_ORD_05DD @1501 NONAME
+	ActivateKeyboardLayout
+	AddClipboardFormatListener
+	AdjustWindowRect
+	AdjustWindowRectEx
+	AlignRects
+	AllowForegroundActivation
+	AllowSetForegroundWindow
+	AnimateWindow
+	AnyPopup
+	AppendMenuA
+	AppendMenuW
+	ArrangeIconicWindows
+	AttachThreadInput
+	BeginDeferWindowPos
+	BeginPaint
+	BlockInput
+	BringWindowToTop
+	BroadcastSystemMessage
+	BroadcastSystemMessageA
+	BroadcastSystemMessageExA
+	BroadcastSystemMessageExW
+	BroadcastSystemMessageW
+	BuildReasonArray
+	...
+	...
+```
