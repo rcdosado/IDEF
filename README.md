@@ -1,7 +1,7 @@
 IDEF
 ====
 
-A commandline utility that will produce a def file for creating Lib files for windows C compilers, if a PE file export a function by ordinal, it is renamed into a generic name,otherwise it is named after its export name,very handy for naming nameless undocumented functions inside DLLs so you can call it from your application like normal API,of course given that you know how that function be called (calling convention, # of parameters, types, etc)
+A reverse engineered commandline utility (dont know who the original author was) that will produce a def file for creating Lib files for windows C compilers, if a PE file export a function by ordinal, it is renamed into a generic name,otherwise it is named after its export name,very handy for naming nameless undocumented functions inside DLLs so you can call it from your application like normal API,of course given that you know how that function be called (calling convention, # of parameters, types, etc)
 
 
 Requirements
