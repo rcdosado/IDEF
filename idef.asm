@@ -19,8 +19,10 @@ error_string2   db 'Module is not 32bit or exports nothing!',CRLF,0
 tmpl8           db '%s_ORD_%.4X @%d NONAME',0
 
 buffer1:
+
 params  db	104h dup(0)
 dmpname db	0EFCh dup(0)
+
         .code
 Start:
 	 mov	 ebp,offset banner
@@ -57,7 +59,7 @@ Start:
 	 push    esi			; hFile
 	 callx   CreateFileMappingA
 
-	 mov	 ebx,eax
+	 mov	 ebx,eax		; move handle to ebx
 
 	 push	 esi
 	 callx	 CloseHandle
@@ -72,20 +74,20 @@ Start:
 	 push    4			; dwDesiredAccess
 	 push    ebx			; hFileMappingObject
 	 callx   MapViewOfFile
- 	 sub     ecx, ecx
-	 mov     ebx, eax
+ 	 sub     ecx, ecx		; ecx = 0
+	 mov     ebx, eax		; move handle to ebx
 
 	 test    eax, eax
 	 jz      _epilogue		; eax points to the start of the image
 
 	 push    offset __exception_handler
 	 push    dword ptr fs:[ecx]
-         mov     fs:[ecx], esp
+         mov     fs:[ecx], esp		;go to __exception_handler when an exception occurs
 
 	 mov     esi, [ebx+3Ch]		; esi points to 'PE' address
 	 mov     ebp, offset error_string2 
 	 cmp     word ptr [esi+ebx+18h], 10Bh ;points to magic optional header
-	 jnz     epilogue
+	 jnz     epilogue		; abort if not a PE file
 
 
 	 mov     edx, [ebx+esi+78h]	; points to export section RVA,it'll jump if pefile has no
@@ -101,7 +103,7 @@ Start:
          push    eax
 	 push    50000h			; uBytes
 	 push    40h			; uFlags
-	 callx   LocalAlloc
+	 callx   LocalAlloc		; get some memory for our playground
 	 test    eax, eax
 	 pop     ecx
 	 jz      epilogue
@@ -109,9 +111,9 @@ Start:
 	 mov     edi, eax
 	 mov     dword ptr ds:banner+4, eax
 	 mov     ebp, ecx
-	 mov     eax, 'EMAN'
+	 mov     eax, 'EMAN'		;NAME
 	 stosd
-	 mov     al, 20h
+	 mov     al, 20h		; add space to the tail
 	 stosb
 
 	 push    dword ptr [ebp+0Ch]
@@ -136,7 +138,7 @@ copy_pe_name:
 	 jb      short jmps
 	 cmp     al, 'z'
 	 ja      short jmps
-	 and     al, '¯'
+	 and     al, 'Â¯'
 
 jmps:                            				 
 	 mov     [esi], al
